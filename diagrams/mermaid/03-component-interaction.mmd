@@ -1,0 +1,33 @@
+sequenceDiagram
+    participant Client
+    participant API Gateway
+    participant Metadata Service
+    participant Cache
+    participant Database
+    participant Search Index
+    participant Event Bus
+    
+    Client->>API Gateway: HTTP Request (JWT Token)
+    API Gateway->>API Gateway: Validate Auth & Rate Limit
+    API Gateway->>Metadata Service: Forward Request
+    
+    alt Read Operation
+        Metadata Service->>Cache: Check Cache
+        alt Cache Hit
+            Cache-->>Metadata Service: Return Cached Data
+            Metadata Service-->>Client: Response
+        else Cache Miss
+            Metadata Service->>Database: Query PostgreSQL
+            Database-->>Metadata Service: Return Data
+            Metadata Service->>Cache: Store in Cache
+            Metadata Service-->>Client: Response
+        end
+    else Write Operation
+        Metadata Service->>Database: Write to PostgreSQL
+        Database-->>Metadata Service: Confirm Write
+        Metadata Service->>Cache: Invalidate Cache
+        Metadata Service->>Event Bus: Publish Change Event
+        Event Bus->>Search Index: Update Search Index (Async)
+        Metadata Service-->>Client: Response
+    end
+

@@ -1,0 +1,47 @@
+flowchart LR
+    subgraph "Ingestion"
+        Batch[Batch Ingestion<br/>CSV/JSON]
+        Stream[Stream Ingestion<br/>Kafka/Events]
+        Connectors[Pluggable Connectors<br/>JDBC, S3, etc.]
+    end
+    
+    subgraph "Processing"
+        Validator[Validation]
+        Transformer[Transformation]
+        Enricher[Enrichment<br/>AI Tagging]
+    end
+    
+    subgraph "Storage"
+        Postgres[(PostgreSQL)]
+        Cache[(Aerospike)]
+        Search[(Elasticsearch)]
+    end
+    
+    subgraph "Consumption"
+        REST_API[REST API]
+        GraphQL_API[GraphQL API]
+        gRPC_API[gRPC API]
+    end
+    
+    Batch --> Validator
+    Stream --> Validator
+    Connectors --> Validator
+    
+    Validator --> Transformer
+    Transformer --> Enricher
+    Enricher --> Postgres
+    
+    Postgres --> Cache
+    Postgres --> Search
+    
+    Postgres --> REST_API
+    Cache --> REST_API
+    Search --> REST_API
+    
+    Postgres --> GraphQL_API
+    Cache --> GraphQL_API
+    Search --> GraphQL_API
+    
+    Postgres --> gRPC_API
+    Cache --> gRPC_API
+

@@ -1,0 +1,126 @@
+erDiagram
+    TENANT ||--o{ USER : "has"
+    TENANT ||--o{ ASSET : "contains"
+    TENANT ||--o{ TAG : "owns"
+    TENANT ||--o{ RELATIONSHIP : "contains"
+    TENANT ||--o{ AUDIT : "logs"
+    TENANT ||--o{ BACKGROUND_TASK : "executes"
+    
+    USER ||--o{ ASSET : "creates"
+    USER ||--o{ RELATIONSHIP : "creates"
+    USER ||--o{ AUDIT : "performs"
+    USER ||--o{ ASSET_TAG : "assigns"
+    
+    ASSET ||--o{ RELATIONSHIP : "source"
+    ASSET ||--o{ RELATIONSHIP : "target"
+    ASSET ||--o{ SCHEMA : "has"
+    ASSET }o--o{ TAG : "tagged_with"
+    
+    ASSET_TAG }o--|| ASSET : "references"
+    ASSET_TAG }o--|| TAG : "references"
+    
+    TENANT {
+        uuid id PK
+        varchar name
+        enum status
+        jsonb config
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    USER {
+        uuid id PK
+        uuid tenant_id FK
+        varchar email UK
+        varchar name
+        jsonb roles
+        varchar api_key_hash
+        timestamp created_at
+        timestamp last_login_at
+    }
+    
+    ASSET {
+        uuid id PK
+        uuid tenant_id FK
+        varchar type
+        varchar name
+        varchar qualified_name UK
+        text description
+        jsonb metadata
+        int version
+        uuid created_by FK
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+    
+    RELATIONSHIP {
+        uuid id PK
+        uuid tenant_id FK
+        uuid source_asset_id FK
+        uuid target_asset_id FK
+        varchar type
+        jsonb metadata
+        uuid created_by FK
+        timestamp created_at
+    }
+    
+    TAG {
+        uuid id PK
+        uuid tenant_id FK
+        varchar name
+        varchar category
+        text description
+        timestamp created_at
+    }
+    
+    ASSET_TAG {
+        uuid asset_id FK
+        uuid tag_id FK
+        uuid created_by FK
+        timestamp created_at
+    }
+    
+    SCHEMA {
+        uuid id PK
+        uuid asset_id FK
+        varchar name
+        varchar type
+        boolean nullable
+        jsonb metadata
+        int order
+        timestamp created_at
+    }
+    
+    AUDIT {
+        uuid id PK
+        uuid tenant_id FK
+        varchar entity_type
+        uuid entity_id
+        varchar action
+        uuid user_id FK
+        jsonb before_state
+        jsonb after_state
+        jsonb metadata
+        inet ip_address
+        varchar user_agent
+        timestamp timestamp
+    }
+    
+    BACKGROUND_TASK {
+        uuid id PK
+        uuid tenant_id FK
+        varchar type
+        enum status
+        int priority
+        jsonb payload
+        jsonb result
+        text error_message
+        int progress
+        int retry_count
+        int max_retries
+        timestamp created_at
+        timestamp started_at
+        timestamp completed_at
+    }
+

@@ -1,0 +1,35 @@
+graph TB
+    subgraph "Tenant A"
+        TenantA_User[User A1, A2, ...]
+        TenantA_Assets[Assets A]
+        TenantA_Data[(Tenant A Data<br/>tenant_id = 'A')]
+    end
+    
+    subgraph "Tenant B"
+        TenantB_User[User B1, B2, ...]
+        TenantB_Assets[Assets B]
+        TenantB_Data[(Tenant B Data<br/>tenant_id = 'B')]
+    end
+    
+    subgraph "Shared Infrastructure"
+        Postgres[(PostgreSQL<br/>Row-Level Security)]
+        Cache[(Aerospike<br/>Namespace Isolation)]
+        Search[(Elasticsearch<br/>Index per Tenant)]
+    end
+    
+    TenantA_User --> TenantA_Assets
+    TenantA_Assets --> TenantA_Data
+    TenantA_Data --> Postgres
+    TenantA_Data --> Cache
+    TenantA_Data --> Search
+    
+    TenantB_User --> TenantB_Assets
+    TenantB_Assets --> TenantB_Data
+    TenantB_Data --> Postgres
+    TenantB_Data --> Cache
+    TenantB_Data --> Search
+    
+    style TenantA_Data fill:#E3F2FD
+    style TenantB_Data fill:#FFF3E0
+    style Postgres fill:#336791,color:#fff
+
