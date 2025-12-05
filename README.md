@@ -16,24 +16,6 @@ Metastore is built on **Java 17** and **Vert.x 4.x**, providing a scalable, cost
 - ✅ **Enterprise-ready**: Comprehensive audit logging and compliance
 - ✅ **Extensible**: Pluggable datastores and ingestion mechanisms
 
-## 📁 Project Structure
-
-```
-metastore/
-├── DESIGN.md                 # Comprehensive system design document
-├── ER_MODEL.md               # Entity-Relationship model documentation
-├── API_DESIGN.md             # API interface specifications
-├── DIAGRAMS.md               # Mermaid diagrams (with images)
-├── diagrams/
-│   ├── mermaid/              # Mermaid source files
-│   └── images/               # Generated PNG images
-├── src/
-│   └── main/
-│       └── java/
-│           └── io/metastore/ # Java/Vert.x implementation
-└── pom.xml                   # Maven project configuration
-```
-
 ## 📚 Documentation
 
 ### 1. [DESIGN.md](DESIGN.md)
