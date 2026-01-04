@@ -202,6 +202,7 @@ View the diagrams:
 - Sharding by tenant (future)
 - Auto-scaling based on metrics
 
+
 ## 💰 Cost Optimization
 
 - Reserved instances for databases
