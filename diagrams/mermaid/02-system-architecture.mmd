@@ -8,110 +8,94 @@ graph TB
     end
     
     subgraph "API Gateway Layer"
-        Router[Vert.x Router]
-        Auth[Authentication Middleware]
-        RateLimit[Rate Limiting]
-        CORS[CORS Handler]
+        Kong[Kong Gateway<br/>Routing, Auth, Rate Limiting]
     end
     
-    subgraph "Application Service Layer"
+    subgraph "Microservices Layer"
         subgraph "Core Services"
-            MetadataService[Metadata Service<br/>CRUD, Versioning]
-            SearchService[Search Service<br/>Full-text, Faceted]
-            AuditService[Audit Service<br/>Change Tracking]
-            NotifyService[Notification Service<br/>Events, Webhooks]
+            MetadataService[Metadata Service<br/>CRUD, Versioning<br/>3 pods]
+            SearchService[Search Service<br/>Full-text, Faceted<br/>2 pods]
+            AuditService[Audit Service<br/>Compliance, Tracking<br/>2 pods]
         end
         
         subgraph "Support Services"
-            AuthService[Auth Service<br/>JWT, OAuth2, RBAC]
-            TenantService[Tenant Service<br/>Isolation, Quotas]
-            IngestionService[Ingestion Service<br/>Batch, Stream]
-            TaskManager[Background Task Manager<br/>Async Jobs, Scheduling]
+            IngestionService[Ingestion Service<br/>Batch, Stream<br/>4 pods]
+            NotificationService[Notification Service<br/>Events, Webhooks<br/>2 pods]
+            TaskService[Task Service<br/>Async Jobs<br/>3 pods]
         end
     end
     
-    subgraph "Data Access Layer"
-        subgraph "Primary Store"
-            Postgres[(PostgreSQL RDS<br/>Primary Datastore<br/>ACID, Relationships)]
-        end
-        
-        subgraph "Cache Layer"
-            Aerospike[(Aerospike<br/>Distributed Cache<br/>Sub-ms Latency)]
-        end
-        
-        subgraph "Search Index"
-            Elasticsearch[(Elasticsearch<br/>Full-text Search<br/>Aggregations)]
-        end
+    subgraph "Messaging Layer"
+        Kafka[Apache Kafka<br/>All Events & Messaging]
     end
     
-    subgraph "Infrastructure"
-        EventBus[Vert.x Event Bus]
-        TaskQueue[Task Queue<br/>Redis/RabbitMQ]
-        Monitoring[Prometheus<br/>Metrics]
-        Logging[Log Aggregation<br/>ELK/Loki]
-        Tracing[Jaeger<br/>Distributed Tracing]
+    subgraph "Data Layer"
+        Postgres[(PostgreSQL<br/>Primary Store)]
+        Aerospike[(Aerospike<br/>Distributed Cache)]
+        Elasticsearch[(Elasticsearch<br/>Search Index)]
+        Redis[(Redis<br/>Task Queue)]
     end
     
-    REST --> Router
-    GraphQL --> Router
-    gRPC --> Router
-    WS --> Router
-    SDK --> Router
+    subgraph "Observability"
+        Monitoring[Prometheus + Grafana]
+        Logging[ELK/Loki]
+        Tracing[Jaeger]
+    end
     
-    Router --> Auth
-    Router --> RateLimit
-    Router --> CORS
+    REST --> Kong
+    GraphQL --> Kong
+    gRPC --> Kong
+    WS --> Kong
+    SDK --> Kong
     
-    Auth --> MetadataService
-    Auth --> SearchService
-    Auth --> AuditService
-    Auth --> NotifyService
-    Auth --> AuthService
-    Auth --> TenantService
-    Auth --> IngestionService
-    Auth --> TaskManager
+    Kong --> MetadataService
+    Kong --> SearchService
+    Kong --> AuditService
+    Kong --> IngestionService
+    Kong --> NotificationService
     
     MetadataService --> Postgres
     MetadataService --> Aerospike
-    MetadataService --> EventBus
+    MetadataService --> Kafka
     
     SearchService --> Elasticsearch
-    SearchService --> Postgres
+    SearchService --> Kafka
     
     AuditService --> Postgres
+    AuditService --> Kafka
     
-    NotifyService --> EventBus
-    NotifyService --> WS
-    
-    AuthService --> Postgres
-    
-    TenantService --> Postgres
-    
+    IngestionService --> Kafka
     IngestionService --> Postgres
-    IngestionService --> EventBus
-    IngestionService --> TaskQueue
     
-    TaskManager --> TaskQueue
-    TaskManager --> Postgres
-    TaskManager --> EventBus
+    NotificationService --> Kafka
+    NotificationService --> WS
     
-    Postgres -.Cache Invalidation.-> Aerospike
-    Postgres -.Index Update.-> Elasticsearch
+    TaskService --> Redis
+    TaskService --> Kafka
+    TaskService --> Postgres
+    
+    Kafka -.Cache Invalidation.-> Aerospike
+    Kafka -.Search Sync.-> Elasticsearch
     
     MetadataService -.Metrics.-> Monitoring
     SearchService -.Metrics.-> Monitoring
-    AuditService -.Metrics.-> Monitoring
+    IngestionService -.Metrics.-> Monitoring
     
     MetadataService -.Logs.-> Logging
     SearchService -.Logs.-> Logging
     
     MetadataService -.Traces.-> Tracing
     SearchService -.Traces.-> Tracing
+    IngestionService -.Traces.-> Tracing
     
     style Postgres fill:#336791,color:#fff
     style Aerospike fill:#C41E3A,color:#fff
     style Elasticsearch fill:#005571,color:#fff
+    style Kong fill:#003459,color:#fff
+    style Kafka fill:#231F20,color:#fff
     style MetadataService fill:#4CAF50,color:#fff
     style SearchService fill:#2196F3,color:#fff
     style AuditService fill:#FF9800,color:#fff
-
+    style IngestionService fill:#9C27B0,color:#fff
+    style NotificationService fill:#00BCD4,color:#fff
+    style TaskService fill:#795548,color:#fff

@@ -77,18 +77,27 @@ Visual diagrams (Mermaid + PNG images):
 ### High-Level Layers
 
 1. **Client Layer**: REST, GraphQL, gRPC, WebSocket, SDKs
-2. **API Gateway Layer**: Authentication, rate limiting, routing
-3. **Application Service Layer**: Metadata, Search, Audit, Notification, Auth, Tenant, Ingestion, Background Tasks
+2. **API Gateway Layer**: Kong for authentication, rate limiting, routing
+3. **Microservices Layer**: Independent services with dedicated scaling
 4. **Data Access Layer**: PostgreSQL (primary), Aerospike (cache), Elasticsearch (search)
+5. **Messaging Layer**: Apache Kafka for all event communication
 
-### Key Components
+### Microservices
 
-- **Metadata Service**: CRUD operations, version management
-- **Search Service**: Full-text and faceted search
-- **Audit Service**: Immutable audit logs for compliance
-- **Notification Service**: Event-driven notifications
-- **Background Task Manager**: Async job processing
-- **Multi-tier Caching**: L1 (in-memory), L2 (Aerospike), L3 (PostgreSQL)
+| Service | Purpose | Scaling |
+|---------|---------|---------|
+| **Metadata Service** | CRUD operations, version management | 3-10 pods |
+| **Search Service** | Full-text and faceted search | 2-8 pods |
+| **Audit Service** | Immutable audit logs for compliance | 2-4 pods |
+| **Ingestion Service** | Batch and stream data ingestion | 2-20 pods |
+| **Notification Service** | Event-driven notifications, webhooks | 2-6 pods |
+| **Task Service** | Async job processing, scheduling | 3-10 pods |
+
+**Why Microservices?**
+- **Independent Scaling**: Ingestion scales 10x during bulk loads
+- **Fault Isolation**: One service failure doesn't affect others
+- **Independent Deployments**: Ship features without coordinated releases
+- **Resource Optimization**: Allocate resources per service needs
 
 ## 🚀 Quick Start
 
@@ -174,7 +183,6 @@ Create `config.json`:
 ## 📊 Diagrams
 
 All diagrams are available in:
-- **Mermaid format**: `DIAGRAMS.md` (editable source)
 - **PNG images**: `diagrams/images/` (rendered images)
 
 View the diagrams:

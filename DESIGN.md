@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-Metastore is a cloud-native, enterprise-grade data catalog designed to overcome limitations of existing metadata stores like Apache Atlas, Amundsen, Open Metadata, and DataHub. Built on Java and Vert.x, it provides a scalable, cost-efficient, and extensible platform for managing metadata at enterprise scale (billions of assets).
+Metastore is a cloud-native, enterprise-grade data catalog designed to overcome limitations of existing metadata stores like Apache Atlas, Amundsen, Open Metadata, and DataHub. Built on Java and Vert.x, it provides a scalable, cost-efficient, and extensible platform for managing metadata at enterprise scale.
 
 ## Table of Contents
 
@@ -42,8 +42,8 @@ Metastore is designed as a distributed, multi-tenant metadata catalog that suppo
 └────────────────────────────┬────────────────────────────────────┘
                              │
 ┌────────────────────────────▼────────────────────────────────────┐
-│                      API Gateway Layer                          │
-│  (Rate Limiting, Authentication, Request Routing)               │
+│                    Kong API Gateway                             │
+│  (Routing, Rate Limiting, Auth, Caching, Logging)               │
 └────────────────────────────┬────────────────────────────────────┘
                              │
 ┌────────────────────────────▼────────────────────────────────────┐
@@ -56,9 +56,14 @@ Metastore is designed as a distributed, multi-tenant metadata catalog that suppo
 │  │   Auth   │  │  Tenant  │  │  Ingestion│ │  Background│       │
 │  │  Service │  │  Service │  │  Service │  │  Task Mgr │        │
 │  └──────────┘  └──────────┘  └──────────┘  └──────────┘         │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────┐
+└──────────────────────┬──────────────────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────────────────┐
+│                    Kafka Message Bus                            │
+│  (Cache invalidation, Stream ingestion, Events, Notifications) │
+└──────────────────────┬──────────────────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────────────────┐
 │                      Data Access Layer                          │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │
 │  │   Postgres   │  │  Aerospike   │  │  Elasticsearch│          │
@@ -69,13 +74,101 @@ Metastore is designed as a distributed, multi-tenant metadata catalog that suppo
 
 ### Component Details
 
-#### 1. API Gateway Layer
-- **Vert.x Router**: Handles HTTP routing, CORS, compression
-- **Authentication Middleware**: Validates JWT tokens, API keys
-- **Rate Limiting**: Per-tenant rate limits
-- **Request Context**: Tenant isolation, request tracing
+#### 1. API Gateway Layer (Kong)
+- **Kong Gateway**: Cloud-native API gateway for routing, CORS, compression
+- **Kong Plugins**: 
+  - JWT/OAuth2 authentication
+  - Rate limiting (per-tenant, per-user)
+  - Request transformation
+  - Response caching
+  - Logging and metrics
+- **Request Context**: Tenant isolation via headers, request tracing with OpenTelemetry
 
-#### 2. Application Services
+**Why Kong over alternatives?**
+| Feature | Kong | AWS API Gateway | Nginx | Envoy |
+|---------|------|-----------------|-------|-------|
+| Cloud-agnostic | ✓ | ✗ | ✓ | ✓ |
+| Plugin ecosystem | Rich | Limited | Moderate | Complex |
+| Rate limiting | Built-in | Built-in | Manual | Manual |
+| Auth plugins | JWT, OAuth2, OIDC | IAM-focused | Manual | Complex |
+| Kubernetes-native | ✓ (Ingress) | ✗ | ✓ | ✓ |
+| Admin API | ✓ | ✓ | ✗ | ✗ |
+| DB-less mode | ✓ | N/A | N/A | N/A |
+
+#### 2. Messaging Layer (Kafka)
+
+**Apache Kafka** - Unified messaging for all event types:
+- **Internal Events**: Cache invalidation, WebSocket broadcasts, task progress
+- **Stream Ingestion**: CDC from external databases, bulk imports
+- **Audit Events**: Immutable audit log with long retention
+- **External Consumers**: Other services subscribe to metadata changes
+
+**Topic Structure**:
+```
+metastore.internal.cache-invalidation  (1 day retention, compacted)
+metastore.internal.notifications       (1 day retention)
+metastore.ingestion.*                  (7 day retention)
+metastore.audit.*                      (365 day retention)
+metastore.events.*                     (30 day retention)
+```
+
+**Why Kafka as unified messaging?**
+| Feature | Kafka | RabbitMQ | Redis Pub/Sub |
+|---------|-------|----------|---------------|
+| Durability | ✓ Always | ✓ Optional | ✗ None |
+| Message replay | ✓ Built-in | ✗ No | ✗ No |
+| Horizontal scaling | ✓ Partitions | ✓ Clustering | ✓ Sharding |
+| Ordering | ✓ Per partition | ✓ Per queue | ✗ No |
+| Consumer groups | ✓ Native | ✗ Manual | ✗ No |
+| Ecosystem | Rich (Connect, Streams) | Good | Limited |
+
+**Trade-off Acknowledged**: Kafka adds 5-10ms latency for internal events. This is acceptable because:
+1. Cache TTL handles eventual staleness
+2. Unified system reduces operational complexity
+3. All events become replayable (useful for debugging)
+4. Team only needs to learn one messaging system
+
+#### 3. Application Layer (Microservices)
+
+**Architecture**: Each service is an **independently deployable unit** with its own lifecycle.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Microservices Architecture                    │
+│                                                                  │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
+│  │  Metadata   │  │   Search    │  │   Audit     │              │
+│  │   Service   │  │   Service   │  │   Service   │              │
+│  │  (3 pods)   │  │  (2 pods)   │  │  (2 pods)   │              │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘              │
+│         │                │                │                      │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
+│  │  Ingestion  │  │Notification │  │   Task      │              │
+│  │   Service   │  │   Service   │  │   Service   │              │
+│  │  (4 pods)   │  │  (2 pods)   │  │  (3 pods)   │              │
+│  └─────────────┘  └─────────────┘  └─────────────┘              │
+│                                                                  │
+│         ↓ All services communicate via Kafka ↓                   │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │                    Apache Kafka                              ││
+│  └─────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Why Microservices?**
+
+| Benefit | How It Helps Metastore |
+|---------|------------------------|
+| **Independent Scaling** | Ingestion needs 4x more pods during bulk loads; Search scales based on query load |
+| **Fault Isolation** | Audit service failure doesn't affect metadata reads |
+| **Independent Deployments** | Deploy Search improvements without touching Metadata |
+| **Technology Flexibility** | Search can use specialized libraries; Ingestion can be optimized differently |
+| **Team Autonomy** | Different teams own different services with clear boundaries |
+| **Targeted Resource Allocation** | Ingestion gets more CPU; Search gets more memory |
+
+**Service Responsibilities:**
+
+**Metadata Service** (Core)
 
 **Metadata Service**
 - CRUD operations on entities and relationships
@@ -143,21 +236,23 @@ Metastore is designed as a distributed, multi-tenant metadata catalog that suppo
 
 ### 1. Background Task Management
 
-**Solution**: Distributed task queue with Vert.x event bus
+**Solution**: Distributed task queue with Redis and Kafka
 
-- **Task Queue**: Redis/RabbitMQ for task distribution
-- **Workers**: Vert.x verticles processing tasks asynchronously
+- **Task Queue**: Redis for persistent task distribution with prioritization
+- **Event Coordination**: Kafka for task events and progress updates
+- **Workers**: Stateless Java services processing tasks asynchronously
 - **Features**:
-  - Task prioritization
+  - Task prioritization (Redis sorted sets)
   - Retry with exponential backoff
-  - Progress tracking
-  - Dead letter queue
+  - Progress tracking via Kafka events
+  - Dead letter queue (Redis)
   - Task cancellation
 
 **Implementation**:
 ```java
 // Task types: BULK_INGESTION, METADATA_SYNC, INDEX_REBUILD, etc.
 // Workers scale horizontally based on queue depth
+// Kafka used for worker coordination and progress updates
 ```
 
 ### 2. Authentication and Authorization
@@ -274,9 +369,11 @@ Tenant → Users → Roles → Permissions → Resources
 - Sub-10ms response times for hot data
 
 **Cache Strategy**:
-- **L1**: In-memory cache (Vert.x local map) - 1-5ms
+- **L1**: In-memory cache (Caffeine) - 1-5ms
 - **L2**: Aerospike distributed cache - 5-10ms
 - **L3**: PostgreSQL - 50-100ms
+
+**Cache Invalidation**: Kafka topic for cross-instance cache invalidation
 
 **Cache Patterns**:
 - Cache-aside (lazy loading)
@@ -592,14 +689,17 @@ service MetadataService {
 
 ### Core
 - **Java 17**: LTS version, modern language features
-- **Vert.x 4.x**: Reactive, non-blocking framework
+- **Vert.x 4.x**: Reactive, non-blocking HTTP server and async I/O
 - **PostgreSQL 15**: Primary datastore (RDS)
 - **Aerospike**: Distributed cache
 
+### API Gateway & Messaging
+- **Kong Gateway**: API gateway for routing, authentication, rate limiting
+- **Apache Kafka**: Unified messaging for all events (internal + external)
+
 ### Additional
 - **Elasticsearch**: Full-text search (optional)
-- **Redis**: Task queue (optional, can use Vert.x event bus)
-- **Kafka**: Event streaming (for stream ingestion)
+- **Redis**: Task queue and session storage
 - **Kubernetes**: Orchestration
 - **Prometheus**: Metrics
 - **Grafana**: Dashboards
@@ -608,6 +708,7 @@ service MetadataService {
 ### Libraries
 - **Jackson**: JSON processing
 - **HikariCP**: Connection pooling
+- **Caffeine**: High-performance in-memory cache (L1)
 - **JWT**: Authentication tokens
 - **GraphQL Java**: GraphQL server
 - **gRPC Java**: gRPC server
@@ -619,19 +720,31 @@ service MetadataService {
 ### Kubernetes Deployment
 
 ```yaml
-# Deployment structure
+# Deployment structure (Microservices)
 - Namespace: metastore
-- Services:
-  - metadata-service (Deployment)
-  - search-service (Deployment)
-  - ingestion-service (Deployment)
-  - background-worker (Deployment)
+- Ingress:
+  - Kong Ingress Controller (API Gateway, routing to services)
+- Deployments (each with independent HPA):
+  - metadata-service    (3 replicas, scales to 10)
+  - search-service      (2 replicas, scales to 8)
+  - audit-service       (2 replicas, scales to 4)
+  - ingestion-service   (2 replicas, scales to 20 during bulk loads)
+  - notification-service (2 replicas, scales to 6)
+  - task-service        (3 replicas, scales to 10)
 - StatefulSets:
   - PostgreSQL (or use managed RDS)
   - Aerospike cluster
-- ConfigMaps: Application config
-- Secrets: Database credentials, API keys
+  - Kafka cluster (or use managed MSK/Confluent)
+- ConfigMaps: Per-service config, Kong plugins, shared config
+- Secrets: Database credentials, API keys, JWT secrets (per-service access)
+- HPA: Per-service auto-scaling based on service-specific metrics
 ```
+
+**Why separate deployments?**
+- **Independent scaling**: Ingestion scales 10x during bulk loads; others stay stable
+- **Fault isolation**: One service crash doesn't take down the system
+- **Rolling updates**: Deploy Search improvements without touching Metadata
+- **Resource optimization**: Ingestion gets CPU-heavy nodes; Search gets memory-heavy nodes
 
 ### Auto-Scaling
 - HPA (Horizontal Pod Autoscaler) based on CPU/memory
@@ -762,10 +875,10 @@ service MetadataService {
 - Complex deployment
 
 **Improvements in Metastore**:
-- Optional Kafka (can use simpler queues)
+- Kafka for unified messaging (internal + external events)
 - Multi-tier caching
 - Resource efficient
-- Kubernetes-native deployment
+- Kubernetes-native deployment with Kong API Gateway
 
 ---
 
@@ -780,8 +893,12 @@ service MetadataService {
 - **Rationale**: ACID guarantees, relationships, audit requirements
 
 ### 3. Monolith vs. Microservices
-- **Choice**: Modular monolith (Vert.x verticles)
-- **Rationale**: Simpler deployment, easier debugging, can split later
+- **Choice**: Microservices architecture
+- **Rationale**: 
+  - **Independent Scaling**: Each service scales based on its specific load patterns
+  - **Fault Isolation**: Failure in one service doesn't cascade to others
+  - **Independent Deployments**: Ship features faster without coordinated releases
+  - **Resource Optimization**: Allocate resources precisely where needed
 
 ### 4. Synchronous vs. Asynchronous
 - **Choice**: Async for ingestion, sync for queries

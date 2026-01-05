@@ -1,33 +1,35 @@
 sequenceDiagram
     participant Client
-    participant API Gateway
-    participant Metadata Service
-    participant Cache
-    participant Database
-    participant Search Index
-    participant Event Bus
+    participant Kong as Kong Gateway
+    participant Metadata as Metadata Service
+    participant Cache as Aerospike Cache
+    participant DB as PostgreSQL
+    participant Kafka
+    participant Search as Search Service
+    participant ES as Elasticsearch
     
-    Client->>API Gateway: HTTP Request (JWT Token)
-    API Gateway->>API Gateway: Validate Auth & Rate Limit
-    API Gateway->>Metadata Service: Forward Request
+    Client->>Kong: HTTP Request (JWT Token)
+    Kong->>Kong: Validate Auth & Rate Limit
+    Kong->>Metadata: Route to Metadata Service
     
     alt Read Operation
-        Metadata Service->>Cache: Check Cache
+        Metadata->>Cache: Check L2 Cache
         alt Cache Hit
-            Cache-->>Metadata Service: Return Cached Data
-            Metadata Service-->>Client: Response
+            Cache-->>Metadata: Return Cached Data
+            Metadata-->>Client: Response
         else Cache Miss
-            Metadata Service->>Database: Query PostgreSQL
-            Database-->>Metadata Service: Return Data
-            Metadata Service->>Cache: Store in Cache
-            Metadata Service-->>Client: Response
+            Metadata->>DB: Query PostgreSQL
+            DB-->>Metadata: Return Data
+            Metadata->>Cache: Store in Cache
+            Metadata-->>Client: Response
         end
     else Write Operation
-        Metadata Service->>Database: Write to PostgreSQL
-        Database-->>Metadata Service: Confirm Write
-        Metadata Service->>Cache: Invalidate Cache
-        Metadata Service->>Event Bus: Publish Change Event
-        Event Bus->>Search Index: Update Search Index (Async)
-        Metadata Service-->>Client: Response
+        Metadata->>DB: Write to PostgreSQL
+        DB-->>Metadata: Confirm Write
+        Metadata->>Kafka: Publish Change Event
+        Metadata-->>Client: Response (sync done)
+        Note over Kafka,ES: Async Processing (Different Services)
+        Kafka-->>Search: Search Service consumes event
+        Search->>ES: Update Elasticsearch index
+        Kafka-->>Cache: Cache invalidation event
     end
-
