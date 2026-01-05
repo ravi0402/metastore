@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-Metastore is a cloud-native, enterprise-grade data catalog designed to overcome limitations of existing metadata stores like Apache Atlas, Amundsen, Open Metadata, and DataHub. Built on Java and Vert.x, it provides a scalable, cost-efficient, and extensible platform for managing metadata at enterprise scale.
+Metastore is a cloud-native, enterprise-grade data catalog designed to overcome limitations of existing metadata stores like Apache Atlas, Amundsen, Open Metadata and DataHub. Built on Java and Vert.x, it provides a scalable, cost-efficient, and extensible platform for managing metadata at enterprise scale.
 
 ## Table of Contents
 
@@ -52,21 +52,21 @@ Metastore is designed as a distributed, multi-tenant metadata catalog that suppo
 │  │ Metadata │  │  Search  │  │  Audit   │  │  Notify  │         │
 │  │ Service  │  │  Service │  │  Service │  │  Service │         │
 │  └──────────┘  └──────────┘  └──────────┘  └──────────┘         │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐         │
-│  │   Auth   │  │  Tenant  │  │  Ingestion│ │  Background│       │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────-┐        │
+│  │   Auth   │  │  Tenant  │  │ Ingestion│  │ Background│        │
 │  │  Service │  │  Service │  │  Service │  │  Task Mgr │        │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘         │
-└──────────────────────┬──────────────────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────────────────┐
-│                    Kafka Message Bus                            │
-│  (Cache invalidation, Stream ingestion, Events, Notifications) │
-└──────────────────────┬──────────────────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────────────────┐
+│  └──────────┘  └──────────┘  └──────────┘  └──────────-┘        │
+└──────────────────────┬────────────────────────────────┬─────────┘
+                       |                                │
+                       |                          ┌─────▼──────────────────────────────────────────────────────────┐
+                       │                          |                           Kafka                                │
+                       │                          |  (Cache invalidation, Stream ingestion, Events, Notifications) │
+                       |                          └─────┬──────────────────────────────────────────────────────-───┘
+                       │                                |                                                 
+┌──────────────────────▼────────────────────────────────▼─────────┐
 │                      Data Access Layer                          │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │
-│  │   Postgres   │  │  Aerospike   │  │  Elasticsearch│          │
+│  │   Postgres   │  │  Aerospike   │  │ Elasticsearch│           │
 │  │  (Primary)   │  │   (Cache)    │  │   (Search)   │           │
 │  └──────────────┘  └──────────────┘  └──────────────┘           │
 └─────────────────────────────────────────────────────────────────┘
@@ -75,7 +75,7 @@ Metastore is designed as a distributed, multi-tenant metadata catalog that suppo
 ### Component Details
 
 #### 1. API Gateway Layer (Kong)
-- **Kong Gateway**: Cloud-native API gateway for routing, CORS, compression
+- **Kong Gateway**: Cloud-native API gateway for routing, compression
 - **Kong Plugins**: 
   - JWT/OAuth2 authentication
   - Rate limiting (per-tenant, per-user)
@@ -85,15 +85,15 @@ Metastore is designed as a distributed, multi-tenant metadata catalog that suppo
 - **Request Context**: Tenant isolation via headers, request tracing with OpenTelemetry
 
 **Why Kong over alternatives?**
-| Feature | Kong | AWS API Gateway | Nginx | Envoy |
-|---------|------|-----------------|-------|-------|
-| Cloud-agnostic | ✓ | ✗ | ✓ | ✓ |
-| Plugin ecosystem | Rich | Limited | Moderate | Complex |
-| Rate limiting | Built-in | Built-in | Manual | Manual |
-| Auth plugins | JWT, OAuth2, OIDC | IAM-focused | Manual | Complex |
-| Kubernetes-native | ✓ (Ingress) | ✗ | ✓ | ✓ |
-| Admin API | ✓ | ✓ | ✗ | ✗ |
-| DB-less mode | ✓ | N/A | N/A | N/A |
+| Feature | Kong | AWS API Gateway | Nginx |
+|---------|------|-----------------|-------|
+| Cloud-agnostic | ✓ | ✗ | ✓ |
+| Plugin ecosystem | Rich | Limited | Moderate |
+| Rate limiting | Built-in | Built-in | Manual |
+| Auth plugins | JWT, OAuth2, OIDC | IAM-focused | Manual |
+| Kubernetes-native | ✓ (Ingress) | ✗ | ✓ |
+| Admin API | ✓ | ✓ | ✗ |
+| DB-less mode | ✓ | N/A | N/A |
 
 #### 2. Messaging Layer (Kafka)
 
@@ -134,24 +134,19 @@ metastore.events.*                     (30 day retention)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Microservices Architecture                    │
-│                                                                  │
+│                    Microservices Architecture                   │
+│                                                                 │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
 │  │  Metadata   │  │   Search    │  │   Audit     │              │
 │  │   Service   │  │   Service   │  │   Service   │              │
-│  │  (3 pods)   │  │  (2 pods)   │  │  (2 pods)   │              │
+│  │             │  │             │  │             |              │
 │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘              │
-│         │                │                │                      │
+│         │                │                │                     │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │  Ingestion  │  │Notification │  │   Task      │              │
+│  │  Ingestion  │  │ Notification│  │    Task     │              │
 │  │   Service   │  │   Service   │  │   Service   │              │
-│  │  (4 pods)   │  │  (2 pods)   │  │  (3 pods)   │              │
+│  │             │  │             │  │             │              │
 │  └─────────────┘  └─────────────┘  └─────────────┘              │
-│                                                                  │
-│         ↓ All services communicate via Kafka ↓                   │
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │                    Apache Kafka                              ││
-│  └─────────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -159,7 +154,7 @@ metastore.events.*                     (30 day retention)
 
 | Benefit | How It Helps Metastore |
 |---------|------------------------|
-| **Independent Scaling** | Ingestion needs 4x more pods during bulk loads; Search scales based on query load |
+| **Independent Scaling** | Ingestion needs 4x more Infra during bulk loads; Search scales based on query load |
 | **Fault Isolation** | Audit service failure doesn't affect metadata reads |
 | **Independent Deployments** | Deploy Search improvements without touching Metadata |
 | **Technology Flexibility** | Search can use specialized libraries; Ingestion can be optimized differently |
@@ -177,7 +172,7 @@ metastore.events.*                     (30 day retention)
 
 **Search Service**
 - Full-text search using Elasticsearch
-- Faceted search
+- Faceted search (Elasticsearch does it by search + aggregations)
 - Graph traversal queries
 
 **Audit Service**
@@ -225,7 +220,7 @@ metastore.events.*                     (30 day retention)
 - TTL-based eviction
 - Cache-aside pattern
 
-**Elasticsearch** (Optional, for search)
+**Elasticsearch** 
 - Full-text search index
 - Aggregations
 - Real-time indexing
@@ -238,7 +233,7 @@ metastore.events.*                     (30 day retention)
 
 **Solution**: Distributed task queue with Redis and Kafka
 
-- **Task Queue**: Redis for persistent task distribution with prioritization
+- **Task Queue**: Redis for task distribution with prioritization
 - **Event Coordination**: Kafka for task events and progress updates
 - **Workers**: Stateless Java services processing tasks asynchronously
 - **Features**:
@@ -248,13 +243,6 @@ metastore.events.*                     (30 day retention)
   - Dead letter queue (Redis)
   - Task cancellation
 
-**Implementation**:
-```java
-// Task types: BULK_INGESTION, METADATA_SYNC, INDEX_REBUILD, etc.
-// Workers scale horizontally based on queue depth
-// Kafka used for worker coordination and progress updates
-```
-
 ### 2. Authentication and Authorization
 
 **Solution**: Multi-layered security with RBAC and ABAC
@@ -262,7 +250,6 @@ metastore.events.*                     (30 day retention)
 - **Authentication**:
   - JWT tokens (short-lived access, long-lived refresh)
   - API keys for programmatic access
-  - OAuth2/OIDC for SSO
   - Service-to-service authentication
 
 - **Authorization**:
@@ -296,8 +283,6 @@ Tenant → Users → Roles → Permissions → Resources
 - WebSocket (real-time)
 
 ### 4. Entities and Relationships
-
-**Solution**: Graph-based data model with type system
 
 **Core Entities**:
 - **Asset**: Base entity (tables, dashboards, pipelines, etc.)
@@ -395,7 +380,6 @@ Tenant → Users → Roles → Permissions → Resources
 - Kafka/Event-driven
 - Real-time metadata updates
 - Change data capture (CDC)
-- Backpressure handling
 
 **Pluggable Connectors**:
 - Database connectors (JDBC)
@@ -411,7 +395,6 @@ Tenant → Users → Roles → Permissions → Resources
   - WebSocket (real-time)
   - Webhooks (HTTP callbacks)
   - Email (SMTP)
-  - Slack/Teams integration
 
 - **Event Types**:
   - Asset changes
@@ -443,41 +426,19 @@ Tenant → Users → Roles → Permissions → Resources
 **Generative AI Integration**:
 - Auto-tagging using LLMs
 - Description generation
-- Query understanding
 - Anomaly detection
 
 **Analytical Workloads**:
 - Metadata analytics dashboard
 - Usage patterns
 - Data quality metrics
-- Lineage impact analysis
 
 **Contextualized Querying**:
 - Natural language queries
 - Semantic search
 - Recommendation engine
 
-### 13. Pluggable Datastores
-
-**Solution**: Abstract storage interface with implementations
-
-**Storage Interface**:
-```java
-interface MetadataStore {
-    CompletableFuture<Entity> create(Entity entity);
-    CompletableFuture<Entity> read(String id);
-    CompletableFuture<Entity> update(Entity entity);
-    CompletableFuture<Void> delete(String id);
-}
-```
-
-**Implementations**:
-- PostgreSQL (default)
-- MongoDB (document store)
-- Neo4j (graph database)
-- DynamoDB (NoSQL)
-
-### 14. Deployment Models and Cost
+### 13. Deployment Models and Cost
 
 **Solution**: Flexible deployment with cost optimization
 
@@ -495,202 +456,12 @@ interface MetadataStore {
 
 ---
 
-## Data Model
-
-### Entity-Relationship Diagram
-
-```
-┌─────────────┐         ┌─────────────┐         ┌─────────────┐
-│   Tenant    │─────────│    User     │─────────│    Role     │
-└─────────────┘         └─────────────┘         └─────────────┘
-      │                        │                        │
-      │                        │                        │
-      ▼                        ▼                        ▼
-┌─────────────┐         ┌─────────────┐         ┌─────────────┐
-│   Asset     │─────────│  Lineage    │─────────│    Tag      │
-└─────────────┘         └─────────────┘         └─────────────┘
-      │                        │                        │
-      │                        │                        │
-      ▼                        ▼                        ▼
-┌─────────────┐         ┌─────────────┐         ┌─────────────┐
-│   Schema    │         │  Glossary   │         │   Audit     │
-└─────────────┘         └─────────────┘         └─────────────┘
-```
-
-### Core Tables (PostgreSQL)
-
-#### tenants
-- id (UUID, PK)
-- name (VARCHAR)
-- status (ENUM)
-- created_at (TIMESTAMP)
-- config (JSONB)
-
-#### assets
-- id (UUID, PK)
-- tenant_id (UUID, FK)
-- type (VARCHAR) -- TABLE, DASHBOARD, PIPELINE, etc.
-- name (VARCHAR)
-- qualified_name (VARCHAR, UNIQUE)
-- metadata (JSONB)
-- version (INT)
-- created_at (TIMESTAMP)
-- updated_at (TIMESTAMP)
-- created_by (UUID, FK)
-
-#### relationships
-- id (UUID, PK)
-- tenant_id (UUID, FK)
-- source_asset_id (UUID, FK)
-- target_asset_id (UUID, FK)
-- type (VARCHAR) -- DEPENDS_ON, CONTAINS, etc.
-- metadata (JSONB)
-- created_at (TIMESTAMP)
-
-#### tags
-- id (UUID, PK)
-- tenant_id (UUID, FK)
-- name (VARCHAR)
-- category (VARCHAR)
-- created_at (TIMESTAMP)
-
-#### asset_tags
-- asset_id (UUID, FK)
-- tag_id (UUID, FK)
-- PRIMARY KEY (asset_id, tag_id)
-
-#### audits
-- id (UUID, PK)
-- tenant_id (UUID, FK)
-- entity_type (VARCHAR)
-- entity_id (UUID)
-- action (VARCHAR) -- CREATE, UPDATE, DELETE, READ
-- user_id (UUID, FK)
-- before_state (JSONB)
-- after_state (JSONB)
-- timestamp (TIMESTAMP)
-- ip_address (INET)
-
-#### users
-- id (UUID, PK)
-- tenant_id (UUID, FK)
-- email (VARCHAR, UNIQUE)
-- name (VARCHAR)
-- roles (JSONB)
-- created_at (TIMESTAMP)
-
-#### background_tasks
-- id (UUID, PK)
-- tenant_id (UUID, FK)
-- type (VARCHAR)
-- status (ENUM) -- PENDING, RUNNING, COMPLETED, FAILED
-- payload (JSONB)
-- result (JSONB)
-- created_at (TIMESTAMP)
-- started_at (TIMESTAMP)
-- completed_at (TIMESTAMP)
-- retry_count (INT)
-
----
-
-## API Design
-
-### REST API
-
-#### Base URL: `/api/v1`
-
-#### Authentication
-```
-POST /auth/login
-POST /auth/refresh
-POST /auth/logout
-```
-
-#### Assets
-```
-GET    /assets                    # List assets (with filters)
-POST   /assets                    # Create asset
-GET    /assets/{id}               # Get asset
-PUT    /assets/{id}               # Update asset
-DELETE /assets/{id}               # Delete asset
-GET    /assets/{id}/lineage       # Get lineage
-POST   /assets/{id}/tags          # Add tags
-```
-
-#### Search
-```
-GET    /search?q={query}          # Full-text search
-GET    /search/facets             # Faceted search
-```
-
-#### Lineage
-```
-GET    /lineage/{assetId}         # Get lineage graph
-POST   /lineage                   # Create relationship
-```
-
-#### Background Tasks
-```
-POST   /tasks                     # Create task
-GET    /tasks/{id}                # Get task status
-GET    /tasks/{id}/progress       # Get progress
-DELETE /tasks/{id}                # Cancel task
-```
-
-#### Ingestion
-```
-POST   /ingestion/batch           # Batch ingestion
-POST   /ingestion/stream          # Stream ingestion endpoint
-```
-
-### GraphQL API
-
-```graphql
-type Query {
-  asset(id: ID!): Asset
-  assets(filter: AssetFilter, pagination: Pagination): AssetConnection
-  search(query: String!): [Asset]
-  lineage(assetId: ID!, depth: Int): LineageGraph
-}
-
-type Mutation {
-  createAsset(input: AssetInput!): Asset
-  updateAsset(id: ID!, input: AssetInput!): Asset
-  deleteAsset(id: ID!): Boolean
-  createRelationship(input: RelationshipInput!): Relationship
-}
-
-type Asset {
-  id: ID!
-  name: String!
-  type: AssetType!
-  metadata: JSON
-  tags: [Tag!]
-  lineage: LineageGraph
-}
-```
-
-### gRPC API
-
-```protobuf
-service MetadataService {
-  rpc GetAsset(GetAssetRequest) returns (Asset);
-  rpc ListAssets(ListAssetsRequest) returns (ListAssetsResponse);
-  rpc CreateAsset(CreateAssetRequest) returns (Asset);
-  rpc UpdateAsset(UpdateAssetRequest) returns (Asset);
-  rpc DeleteAsset(DeleteAssetRequest) returns (Empty);
-  rpc GetLineage(GetLineageRequest) returns (LineageGraph);
-}
-```
-
----
-
 ## Technology Stack
 
 ### Core
-- **Java 17**: LTS version, modern language features
-- **Vert.x 4.x**: Reactive, non-blocking HTTP server and async I/O
-- **PostgreSQL 15**: Primary datastore (RDS)
+- **Java**: LTS version, modern language features
+- **Vert.x**: Reactive, non-blocking HTTP server and async I/O
+- **PostgreSQL**: Primary datastore (RDS)
 - **Aerospike**: Distributed cache
 
 ### API Gateway & Messaging
@@ -707,10 +478,9 @@ service MetadataService {
 
 ### Libraries
 - **Jackson**: JSON processing
-- **HikariCP**: Connection pooling
 - **Caffeine**: High-performance in-memory cache (L1)
 - **JWT**: Authentication tokens
-- **GraphQL Java**: GraphQL server
+- **Apollo GraphQL**: GraphQL server
 - **gRPC Java**: gRPC server
 
 ---
@@ -725,12 +495,12 @@ service MetadataService {
 - Ingress:
   - Kong Ingress Controller (API Gateway, routing to services)
 - Deployments (each with independent HPA):
-  - metadata-service    (3 replicas, scales to 10)
-  - search-service      (2 replicas, scales to 8)
-  - audit-service       (2 replicas, scales to 4)
-  - ingestion-service   (2 replicas, scales to 20 during bulk loads)
-  - notification-service (2 replicas, scales to 6)
-  - task-service        (3 replicas, scales to 10)
+  - metadata-service    
+  - search-service      
+  - audit-service       
+  - ingestion-service  
+  - notification-service
+  - task-service        
 - StatefulSets:
   - PostgreSQL (or use managed RDS)
   - Aerospike cluster
@@ -764,7 +534,7 @@ service MetadataService {
 ### Strategies
 
 1. **Compute**
-   - Use spot instances for workers (70% savings)
+   - Use spot instances for services and workers (70% savings)
    - Reserved instances for databases (40% savings)
    - Auto-scale to zero for dev environments
 
@@ -802,14 +572,12 @@ service MetadataService {
 - Request rate, latency, error rate
 - Database connection pool usage
 - Cache hit/miss ratio
-- Task queue depth
 - Tenant resource usage
 
 ### Logging
 - Structured JSON logs
-- Log aggregation (ELK/Loki)
+- Log aggregation (ELK)
 - Log levels per environment
-- PII scrubbing
 
 ### Tracing (Jaeger)
 - Distributed tracing across services
@@ -819,8 +587,10 @@ service MetadataService {
 ### Alerts
 - High error rate
 - Database connection exhaustion
+- High storage utilization
 - Cache miss rate threshold
 - Task queue backlog
+- Consumer Lag
 
 ---
 
@@ -831,7 +601,7 @@ service MetadataService {
 - Tightly coupled with Hadoop ecosystem
 - Limited scalability (single JVM)
 - Complex deployment
-- Poor API design
+- Older API design
 - No native multi-tenancy
 
 **Improvements in Metastore**:
@@ -869,7 +639,6 @@ service MetadataService {
 
 ### DataHub
 **Limitations**:
-- Kafka dependency (complexity)
 - Limited caching
 - Resource intensive
 - Complex deployment

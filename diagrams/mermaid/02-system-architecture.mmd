@@ -13,15 +13,15 @@ graph TB
     
     subgraph "Microservices Layer"
         subgraph "Core Services"
-            MetadataService[Metadata Service<br/>CRUD, Versioning<br/>3 pods]
-            SearchService[Search Service<br/>Full-text, Faceted<br/>2 pods]
-            AuditService[Audit Service<br/>Compliance, Tracking<br/>2 pods]
+            MetadataService[Metadata Service<br/>CRUD, Versioning<br/>]
+            SearchService[Search Service<br/>Full-text, Faceted<br/>]
+            AuditService[Audit Service<br/>Compliance, Tracking<br/>]
         end
         
         subgraph "Support Services"
-            IngestionService[Ingestion Service<br/>Batch, Stream<br/>4 pods]
-            NotificationService[Notification Service<br/>Events, Webhooks<br/>2 pods]
-            TaskService[Task Service<br/>Async Jobs<br/>3 pods]
+            IngestionService[Ingestion Service<br/>Batch, Stream<br/>]
+            NotificationService[Notification Service<br/>Events, Webhooks<br/>]
+            TaskService[Task Service<br/>Async Jobs<br/>]
         end
     end
     

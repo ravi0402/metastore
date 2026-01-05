@@ -791,17 +791,6 @@ const ws = new WebSocket('wss://api.metastore.io/v1/ws?token=...');
 
 ---
 
-## Rate Limiting
-
-- **Per-tenant limits**: 1000 requests/minute
-- **Per-user limits**: 100 requests/minute
-- Headers:
-  - `X-RateLimit-Limit`: Request limit
-  - `X-RateLimit-Remaining`: Remaining requests
-  - `X-RateLimit-Reset`: Reset timestamp
-
----
-
 ## Pagination
 
 All list endpoints support pagination:

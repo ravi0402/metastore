@@ -4,7 +4,7 @@ A cloud-native, enterprise-grade data catalog designed to overcome limitations o
 
 ## 📋 Overview
 
-Metastore is built on **Java 17** and **Vert.x 4.x**, providing a scalable, cost-efficient, and extensible platform for managing metadata at enterprise scale (billions of assets).
+Metastore is built on **Java** and **Vert.x**, providing a scalable, cost-efficient, and extensible platform for managing metadata at enterprise scale (billions of assets).
 
 ### Key Features
 
@@ -51,7 +51,6 @@ Visual diagrams (Mermaid + PNG images):
 - System architecture diagram
 - Component interaction flow
 - Data flow diagram
-- Deployment architecture
 - Multi-tenancy isolation
 
 ## 🏗️ Architecture
@@ -68,12 +67,12 @@ Visual diagrams (Mermaid + PNG images):
 
 | Service | Purpose | Scaling |
 |---------|---------|---------|
-| **Metadata Service** | CRUD operations, version management | 3-10 pods |
-| **Search Service** | Full-text and faceted search | 2-8 pods |
-| **Audit Service** | Immutable audit logs for compliance | 2-4 pods |
-| **Ingestion Service** | Batch and stream data ingestion | 2-20 pods |
-| **Notification Service** | Event-driven notifications, webhooks | 2-6 pods |
-| **Task Service** | Async job processing, scheduling | 3-10 pods |
+| **Metadata Service** | CRUD operations, version management |
+| **Search Service** | Full-text and faceted search |
+| **Audit Service** | Immutable audit logs for compliance |
+| **Ingestion Service** | Batch and stream data ingestion |
+| **Notification Service** | Event-driven notifications, webhooks |
+| **Task Service** | Async job processing, scheduling |
 
 **Why Microservices?**
 - **Independent Scaling**: Ingestion scales 10x during bulk loads
@@ -95,20 +94,19 @@ Visual diagrams (Mermaid + PNG images):
 10. ✅ Notifications
 11. ✅ Scalability and Extensibility
 12. ✅ Innovation with AI and Analytics
-13. ✅ Pluggable Datastores
-14. ✅ Deployment Models and Cost Optimization
+13. ✅ Deployment Models and Cost Optimization
 
 ## 🛠️ Technology Stack
 
-- **Language**: Java 17
-- **Framework**: Vert.x 4.x
-- **Database**: PostgreSQL 15 (RDS)
+- **Language**: Java
+- **Framework**: Vert.x
+- **Database**: PostgreSQL (RDS)
 - **Cache**: Aerospike
-- **Search**: Elasticsearch (optional)
+- **Search**: Elasticsearch
 - **Orchestration**: Kubernetes
 - **Monitoring**: Prometheus, Grafana
 - **Tracing**: Jaeger
-- **Logging**: ELK/Loki
+- **Logging**: ELK
 
 ## 📊 Diagrams
 
@@ -120,7 +118,6 @@ View the diagrams:
 - [System Architecture](diagrams/images/02-system-architecture.png)
 - [Component Interaction](diagrams/images/03-component-interaction.png)
 - [Data Flow](diagrams/images/04-data-flow.png)
-- [Deployment Architecture](diagrams/images/05-deployment-architecture.png)
 - [Multi-Tenancy Isolation](diagrams/images/06-multi-tenancy.png)
 
 ## 🔐 Security
