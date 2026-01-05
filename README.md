@@ -16,24 +16,6 @@ Metastore is built on **Java 17** and **Vert.x 4.x**, providing a scalable, cost
 - ✅ **Enterprise-ready**: Comprehensive audit logging and compliance
 - ✅ **Extensible**: Pluggable datastores and ingestion mechanisms
 
-## 📁 Project Structure
-
-```
-metastore/
-├── DESIGN.md                 # Comprehensive system design document
-├── ER_MODEL.md               # Entity-Relationship model documentation
-├── API_DESIGN.md             # API interface specifications
-├── DIAGRAMS.md               # Mermaid diagrams (with images)
-├── diagrams/
-│   ├── mermaid/              # Mermaid source files
-│   └── images/               # Generated PNG images
-├── src/
-│   └── main/
-│       └── java/
-│           └── io/metastore/ # Java/Vert.x implementation
-└── pom.xml                   # Maven project configuration
-```
-
 ## 📚 Documentation
 
 ### 1. [DESIGN.md](DESIGN.md)
@@ -98,58 +80,6 @@ Visual diagrams (Mermaid + PNG images):
 - **Fault Isolation**: One service failure doesn't affect others
 - **Independent Deployments**: Ship features without coordinated releases
 - **Resource Optimization**: Allocate resources per service needs
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Java 17+
-- Maven 3.8+
-- PostgreSQL 15+
-- (Optional) Aerospike for distributed caching
-- (Optional) Elasticsearch for full-text search
-
-### Build
-
-```bash
-mvn clean package
-```
-
-### Run
-
-```bash
-java -jar target/metastore-1.0.0-fat.jar
-```
-
-### Configuration
-
-Create `config.json`:
-
-```json
-{
-  "http": {
-    "port": 8080
-  },
-  "database": {
-    "host": "localhost",
-    "port": 5432,
-    "database": "metastore",
-    "user": "postgres",
-    "password": "postgres",
-    "pool": {
-      "size": 10
-    }
-  },
-  "cache": {
-    "ttl": 3600
-  },
-  "auth": {
-    "jwt": {
-      "secret": "your-secret-key"
-    }
-  }
-}
-```
 
 ## 🎯 Challenges Addressed
 
